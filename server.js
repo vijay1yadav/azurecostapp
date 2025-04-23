@@ -4,7 +4,7 @@ const cors = require('cors'); // Add CORS package
 require('dotenv').config();
 
 const app = express();
-const port = 3000;
+//const port = 3000;
 
 // Enable CORS for requests from http://127.0.0.1:5500
 app.use(cors({
@@ -346,6 +346,8 @@ app.get('/api/plans', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch Defender plans' });
     }
 });
+
+const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
