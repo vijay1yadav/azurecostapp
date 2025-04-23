@@ -1,0 +1,9 @@
+node_modules 
+app.zip 
+temp_zip 
+frontend 
+index*.html 
+.env 
+.azure 
+.vscode 
+AzureCostAnalyzerApp.txt 
