@@ -347,7 +347,8 @@ app.get('/api/plans', async (req, res) => {
     }
 });
 
-const port = process.env.PORT || 3000;
+// const port = process.env.PORT || 3000;
+const port = 8080; // Temporarily hardcode to 8080 for testing
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
