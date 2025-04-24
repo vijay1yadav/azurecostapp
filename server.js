@@ -8,7 +8,7 @@ const app = express();
 
 // Enable CORS for requests from http://127.0.0.1:5500
 app.use(cors({
-    origin: 'http://127.0.0.1:5500', // Allow requests from this origin
+    origin: '*', // Allow requests from this origin
     methods: ['GET', 'POST'], // Allow these HTTP methods
     allowedHeaders: ['Content-Type'], // Allow these headers
 }));
