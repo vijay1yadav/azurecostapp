@@ -9,7 +9,6 @@
     <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
-    <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 
@@ -18,50 +17,71 @@
     <script type="text/babel">
         const { useState, useEffect, Component } = React;
 
-        // MSAL Configuration
-        const msalConfig = {
-            auth: {
-                clientId: "<your-client-id>", // Replace with your app registration's Client ID
-                authority: "https://login.microsoftonline.com/e7ea7b4d-a56f-426b-be45-857324a57837",
-                redirectUri: "https://<random-name>.azurestaticapps.net", // Replace with your Static Web App URL
-            },
-            cache: {
-                cacheLocation: "sessionStorage",
-                storeAuthStateInCookie: false,
-            },
-        };
+        // Simple local login component
+        const Login = ({ onLogin }) => {
+            const [username, setUsername] = useState("");
+            const [password, setPassword] = useState("");
+            const [error, setError] = useState("");
 
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
+            const handleLogin = () => {
+                // Hardcoded credentials for simplicity
+                const validUsername = "admin";
+                const validPassword = "password";
 
-        const login = async () => {
-            try {
-                const loginResponse = await msalInstance.loginPopup({
-                    scopes: ["User.Read", "access_as_user"],
-                });
-                console.log("Login successful", loginResponse);
-                return loginResponse.accessToken;
-            } catch (error) {
-                console.error("Login failed", error);
-                throw error;
-            }
-        };
-
-        const getToken = async () => {
-            const accounts = msalInstance.getAllAccounts();
-            if (accounts.length > 0) {
-                try {
-                    const tokenResponse = await msalInstance.acquireTokenSilent({
-                        scopes: ["access_as_user"],
-                        account: accounts[0],
-                    });
-                    return tokenResponse.accessToken;
-                } catch (error) {
-                    console.error("Silent token acquisition failed", error);
-                    return await login();
+                if (username === validUsername && password === validPassword) {
+                    onLogin(); // Call the onLogin callback to render the main app
+                } else {
+                    setError("Invalid username or password");
                 }
-            } else {
-                return await login();
-            }
+            };
+
+            return (
+                <div className="container mx-auto p-6 flex items-center justify-center min-h-screen">
+                    <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm">
+                        <h2 className="text-2xl font-bold mb-4 text-gray-800">Login</h2>
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md" role="alert">
+                                {error}
+                            </div>
+                        )}
+                        <div className="mb-4">
+                            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                                Username
+                            </label>
+                            <input
+                                id="username"
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Enter username"
+                                aria-label="Username"
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                                Password
+                            </label>
+                            <input
+                                id="password"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Enter password"
+                                aria-label="Password"
+                            />
+                        </div>
+                        <button
+                            onClick={handleLogin}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                            aria-label="Login to the application"
+                        >
+                            Login
+                        </button>
+                    </div>
+                </div>
+            );
         };
 
         class ErrorBoundary extends Component {
@@ -123,14 +143,11 @@
                     }
                     setLoading(true);
 
-                    const token = await getToken();
-
-                    // Fetch cost data
+                    // Fetch cost data (removed Authorization header)
                     const costResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/costs', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
                         },
                         body: JSON.stringify({
                             startDate: new Date(startDate).toISOString(),
@@ -143,12 +160,11 @@
                         throw new Error(costData.error || 'Failed to fetch cost data');
                     }
 
-                    // Fetch top resources
+                    // Fetch top resources (removed Authorization header)
                     const resourceResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/top-resources', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
                         },
                         body: JSON.stringify({
                             startDate: new Date(startDate).toISOString(),
@@ -161,12 +177,11 @@
                         throw new Error(topResources.error || 'Failed to fetch top resources');
                     }
 
-                    // Fetch Defender plans
+                    // Fetch Defender plans (removed Authorization header)
                     const plansResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/plans', {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
                         },
                     });
 
@@ -202,6 +217,7 @@
                     const subscriptionCostMap = {};
                     rows.forEach((row) => {
                         const [cost, meterCategory, planName, subscriptionId, resourceGroup, subscriptionName] = row;
+
                         transformedData.overallCost += cost;
 
                         if (subscriptionId) {
@@ -1116,12 +1132,18 @@
             );
         };
 
-        ReactDOM.render(
-            <ErrorBoundary>
-                <App />
-            </ErrorBoundary>,
-            document.getElementById("root")
-        );
+        // Main component to handle login state
+        const Main = () => {
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+            return (
+                <ErrorBoundary>
+                    {isLoggedIn ? <App /> : <Login onLogin={() => setIsLoggedIn(true)} />}
+                </ErrorBoundary>
+            );
+        };
+
+        ReactDOM.render(<Main />, document.getElementById("root"));
     </script>
 </body>
 
