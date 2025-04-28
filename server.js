@@ -7,9 +7,9 @@ const app = express();
 
 // Enable CORS for requests from the Static Web App
 app.use(cors({
-    origin: 'https://<random-name>.azurestaticapps.net', // Replace with your Static Web App URL
+    origin: 'https://witty-sand-098c80a00.6.azurestaticapps.net', // Updated with your Static Web App URL
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type'], // Removed 'Authorization' since it's no longer used
 }));
 
 // Middleware to parse JSON bodies
