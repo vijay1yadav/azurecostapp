@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 
@@ -17,71 +18,55 @@
     <script type="text/babel">
         const { useState, useEffect, Component } = React;
 
-        // Simple local login component
-        const Login = ({ onLogin }) => {
-            const [username, setUsername] = useState("");
-            const [password, setPassword] = useState("");
-            const [error, setError] = useState("");
+        // MSAL Configuration
+        const msalConfig = {
+            auth: {
+                clientId: "64fac289-ad7f-44e4-a719-a24dc9ced789", // Replace with your app registration's Client ID
+                authority: "https://login.microsoftonline.com/e7ea7b4d-a56f-426b-be45-857324a57837",
+                redirectUri: "https://witty-sand-098c80a00.6.azurestaticapps.net", // Updated for local testing
+            },
+            cache: {
+                cacheLocation: "sessionStorage",
+                storeAuthStateInCookie: false,
+            },
+            system: {
+                allowNativeBroker: false, // Optional: Disable native broker if not needed
+                preventConcurrentRequests: true, // Optional: Prevent concurrent token requests
+            },
+        };
 
-            const handleLogin = () => {
-                // Hardcoded credentials for simplicity
-                const validUsername = "admin";
-                const validPassword = "password";
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-                if (username === validUsername && password === validPassword) {
-                    onLogin(); // Call the onLogin callback to render the main app
-                } else {
-                    setError("Invalid username or password");
+        const login = async () => {
+            try {
+                const loginResponse = await msalInstance.loginPopup({
+                    scopes: ["User.Read", "https://management.azure.com/user_impersonation"],
+                    prompt: "select_account", // Force account selection to avoid cached credentials
+                });
+                console.log("Login successful", loginResponse);
+                return loginResponse.accessToken;
+            } catch (error) {
+                console.error("Login failed", error);
+                throw error;
+            }
+        };
+
+        const getToken = async () => {
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+                try {
+                    const tokenResponse = await msalInstance.acquireTokenSilent({
+                        scopes: ["https://management.azure.com/user_impersonation"],
+                        account: accounts[0],
+                    });
+                    return tokenResponse.accessToken;
+                } catch (error) {
+                    console.error("Silent token acquisition failed", error);
+                    return await login();
                 }
-            };
-
-            return (
-                <div className="container mx-auto p-6 flex items-center justify-center min-h-screen">
-                    <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm">
-                        <h2 className="text-2xl font-bold mb-4 text-gray-800">Login</h2>
-                        {error && (
-                            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md" role="alert">
-                                {error}
-                            </div>
-                        )}
-                        <div className="mb-4">
-                            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                                Username
-                            </label>
-                            <input
-                                id="username"
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Enter username"
-                                aria-label="Username"
-                            />
-                        </div>
-                        <div className="mb-4">
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                Password
-                            </label>
-                            <input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Enter password"
-                                aria-label="Password"
-                            />
-                        </div>
-                        <button
-                            onClick={handleLogin}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-                            aria-label="Login to the application"
-                        >
-                            Login
-                        </button>
-                    </div>
-                </div>
-            );
+            } else {
+                return await login();
+            }
         };
 
         class ErrorBoundary extends Component {
@@ -143,11 +128,14 @@
                     }
                     setLoading(true);
 
-                    // Fetch cost data (removed Authorization header)
-                    const costResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/costs', {
+                    const token = await getToken();
+
+                    // Fetch cost data
+                    const costResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/costs', { // Updated to local backend URL
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
                         },
                         body: JSON.stringify({
                             startDate: new Date(startDate).toISOString(),
@@ -160,11 +148,12 @@
                         throw new Error(costData.error || 'Failed to fetch cost data');
                     }
 
-                    // Fetch top resources (removed Authorization header)
-                    const resourceResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/top-resources', {
+                    // Fetch top resources
+                    const resourceResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/top-resources', { // Updated to local backend URL
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
                         },
                         body: JSON.stringify({
                             startDate: new Date(startDate).toISOString(),
@@ -177,11 +166,12 @@
                         throw new Error(topResources.error || 'Failed to fetch top resources');
                     }
 
-                    // Fetch Defender plans (removed Authorization header)
-                    const plansResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/plans', {
+                    // Fetch Defender plans
+                    const plansResponse = await fetch('https://cost-analyzer-app.azurewebsites.net/api/plans', { // Updated to local backend URL
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
                         },
                     });
 
@@ -217,7 +207,6 @@
                     const subscriptionCostMap = {};
                     rows.forEach((row) => {
                         const [cost, meterCategory, planName, subscriptionId, resourceGroup, subscriptionName] = row;
-
                         transformedData.overallCost += cost;
 
                         if (subscriptionId) {
@@ -1132,18 +1121,12 @@
             );
         };
 
-        // Main component to handle login state
-        const Main = () => {
-            const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-            return (
-                <ErrorBoundary>
-                    {isLoggedIn ? <App /> : <Login onLogin={() => setIsLoggedIn(true)} />}
-                </ErrorBoundary>
-            );
-        };
-
-        ReactDOM.render(<Main />, document.getElementById("root"));
+        ReactDOM.render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>,
+            document.getElementById("root")
+        );
     </script>
 </body>
 
